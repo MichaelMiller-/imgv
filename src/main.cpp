@@ -7,6 +7,8 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include <string>
+#include <filesystem>
+#include <iostream>
 
 int main(int argc, char** argv)
 {
@@ -14,6 +16,7 @@ int main(int argc, char** argv)
    std::string image_filename{};
 
    namespace po = boost::program_options;
+   namespace fs = std::experimental::filesystem;
 
    //! \todo 2019-04-05 messages and options
    po::options_description desc("Allowed options");
@@ -30,10 +33,24 @@ int main(int argc, char** argv)
 
    if (vm.count("help"))
    {
-      //! \todo show help message
-//      std::cout << desc << "\n";
+      std::cout << desc << "\n";
       return 1;
    }
+
+   auto current_directory = fs::absolute({ image_filename });
+   auto ss = fs::absolute({ image_filename }).u8string();
+   // const auto current_directory = QFileInfo(QString::fromStdString(filename)).absolutePath().toStdString();
+   // const auto purged_filename = QFileInfo(QString::fromStdString(filename)).fileName().toStdString();
+   //! \todo 2019-04-05 filter images from filelist
+   const auto rng = boost::make_iterator_range(fs::directory_iterator{current_directory}, {});
+
+   //! \todo 2019-04-05 only do stuff if it is neccessary -> always clear and reload make no sense
+   // current_directory_image_list.clear();
+   // std::transform(
+   //    std::begin(rng), 
+   //    std::end(rng), 
+   //    std::back_inserter(current_directory_image_list), 
+   //    [](auto && e){ return e.path().u8string(); });
 
    QApplication app(argc, argv);
    //! \todo 2019-04-04 cmdline arguments for file 

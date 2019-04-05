@@ -33,9 +33,9 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
 target_link_libraries(${PROJECT_NAME} ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
-include(CTest)
-enable_testing()
-add_subdirectory(tests)
+# include(CTest)
+# enable_testing()
+# add_subdirectory(tests)
 
 ## local Windows
 # cmake .. "-DCMAKE_TOOLCHAIN_FILE=C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake"
