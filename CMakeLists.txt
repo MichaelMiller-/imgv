@@ -33,23 +33,6 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
 target_link_libraries(${PROJECT_NAME} ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
-configure_file(
-   "${PROJECT_SOURCE_DIR}/data/pic01.gif"
-   "${PROJECT_BINARY_DIR}/data/pic01.gif"
-   COPYONLY)
-configure_file(
-   "${PROJECT_SOURCE_DIR}/data/pic02.gif"
-   "${PROJECT_BINARY_DIR}/data/pic02.gif"
-   COPYONLY)
-configure_file(
-   "${PROJECT_SOURCE_DIR}/data/sam.png"
-   "${PROJECT_BINARY_DIR}/data/sam.png"
-   COPYONLY)
-configure_file(
-   "${PROJECT_SOURCE_DIR}/data/frilo.jpg"
-   "${PROJECT_BINARY_DIR}/data/frilo.jpg"
-   COPYONLY)
-
 include(CTest)
 enable_testing()
 add_subdirectory(tests)
