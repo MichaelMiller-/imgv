@@ -2,5 +2,6 @@
 
 ---------------------------------------
 
-# imgv
-## Image Viewer
+## Image Viewer (imgv)
+
+A learn project to see the interaction between CMake and Qt5.

@@ -3,36 +3,43 @@
 class QLabel;
 class QMovie;
 class QSlider;
+class QScrollArea;
 
-#include <QThread>
 #include <QWidget>
 
 #include <vector>
 #include <string>
 #include <filesystem>
 
-
-class main_widget final : public QWidget 
+class main_widget final : public QWidget
 {
-  Q_OBJECT
+   Q_OBJECT
 
 private:
-  QLabel *canvas{nullptr};
-  QMovie *movie{nullptr};
-  QSlider* frame_slider{nullptr};
+   QLabel *canvas{nullptr};
+   QMovie *movie{nullptr};
+   QScrollArea* scroll_area{nullptr};
+   // QSlider* frame_slider{nullptr};
 
-  QAction* play_pause{nullptr};
-  QAction* previous_image{nullptr};
-  QAction* next_image{nullptr};
+   QAction* play_pause{nullptr};
+   QAction* fit_to_window{nullptr};
+   QAction* previous_image{nullptr};
+   QAction* next_image{nullptr};
 
-  //! \todo 
-  QThread *directory_loader{nullptr};
+   using container_t = std::vector<std::string>;
+   using value_t = container_t::value_type;
 
-  std::vector<std::string> current_directory_image_list{};
-  decltype(current_directory_image_list)::iterator current_image;
+   container_t image_list;
+
+private slots:
+   void fit_image_to_widget(bool value);
+
+private:
+   void show_image(value_t const& image_filename);
 
 public:
-   main_widget(QWidget *parent = nullptr);
+   explicit main_widget(container_t&& img_list);
 
-   void open_file(std::string const& filename);
+protected:
+   virtual void showEvent(QShowEvent *event) override;
 };

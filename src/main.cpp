@@ -1,61 +1,141 @@
 #include <QApplication>
 
+#include "config.h"
 #include "main_widget.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <boost/range/adaptors.hpp>
+#include <boost/range/algorithm.hpp>
+#include <boost/range/iterator_range.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
+#include <spdlog/spdlog.h>
 
 #include <string>
 #include <filesystem>
-#include <iostream>
+#include <sstream>
+#include <tuple>
+#include <utility>
+#include <algorithm>
+#include <random>
 
-int main(int argc, char** argv)
+namespace po = boost::program_options;
+namespace fs = std::filesystem;
+
+template <typename... Fs>
+class any_of
 {
-   bool maximized{ false };
-   std::string image_filename{};
+   std::tuple<Fs...> fs;
 
-   namespace po = boost::program_options;
-   namespace fs = std::experimental::filesystem;
-
-   //! \todo 2019-04-05 messages and options
-   po::options_description desc("Allowed options");
-   desc.add_options()
-      ("version,v", "print version string"),
-      ("help", "produce help message (this page)"),
-      ("maximized", po::bool_switch(&maximized)->default_value(maximized), "Shows the window maximized"),
-      ("image", po::value<decltype(image_filename)>(&image_filename), "file that will be shown")
-      ;
-
-   po::variables_map vm;
-   po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-   po::notify(vm);
-
-   if (vm.count("help"))
+   template <std::size_t ...Is, typename... Args>
+   constexpr bool invoke(std::index_sequence<Is...>, Args &&... args) const
    {
-      std::cout << desc << "\n";
-      return 1;
+      return (... || std::get<Is>(fs)(args...));
    }
+   
+public:
+   explicit any_of(Fs... fs) : fs{ fs... } {};
 
-   auto current_directory = fs::absolute({ image_filename });
-   auto ss = fs::absolute({ image_filename }).u8string();
-   // const auto current_directory = QFileInfo(QString::fromStdString(filename)).absolutePath().toStdString();
-   // const auto purged_filename = QFileInfo(QString::fromStdString(filename)).fileName().toStdString();
-   //! \todo 2019-04-05 filter images from filelist
-   const auto rng = boost::make_iterator_range(fs::directory_iterator{current_directory}, {});
+   template <typename... Args>
+   constexpr bool operator()(Args &&... args) const
+   {
+      return invoke(std::index_sequence_for<Fs...>(), std::forward<Args>(args)...);
+   }
+};
 
-   //! \todo 2019-04-05 only do stuff if it is neccessary -> always clear and reload make no sense
-   // current_directory_image_list.clear();
-   // std::transform(
-   //    std::begin(rng), 
-   //    std::end(rng), 
-   //    std::back_inserter(current_directory_image_list), 
-   //    [](auto && e){ return e.path().u8string(); });
+class stop_application
+{
+   const std::string message;
+public:
+   template <typename... Args>
+   stop_application(Args &&... args) : message{ std::forward<Args>(args)... }
+   {}
 
-   QApplication app(argc, argv);
-   //! \todo 2019-04-04 cmdline arguments for file 
-   main_widget wnd{};
-   wnd.open_file("data/sam.png");
-   maximized ? wnd.showMaximized() : wnd.show();
-   return app.exec();
+   [[nodiscard]] auto what() const noexcept { return message; }
+};
+
+int main(int argc, char **argv)
+{
+   int exit_code{0};
+   try
+   {
+      spdlog::set_level(spdlog::level::debug);
+      spdlog::info("imgv started ...");
+
+      bool maximized{false};
+      bool random_shuffle{true};
+      std::string input_path{};
+
+      po::options_description desc("Allowed options");
+      // clang-format off
+      desc.add_options()
+         ("help", "produce help message (this page)")
+         ("version,V", "print version string")
+         ("maximized", po::bool_switch(&maximized)->default_value(maximized), "Shows the window maximized")
+         ("shuffle", po::bool_switch(&random_shuffle)->default_value(random_shuffle), "show a random image")
+         ("path,P", po::value<decltype(input_path)>(&input_path), "images in path will be shown")
+         ;
+      // clang-format on
+      po::variables_map vm;
+      po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
+      po::notify(vm);
+
+      if (vm.count("help"))
+      {
+         std::stringstream ss;
+         ss << desc;
+         throw stop_application(ss.str());
+      }
+      if (vm.count("version"))
+         throw stop_application("imgv version: " + std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR));
+
+      if (std::empty(input_path))
+         throw std::invalid_argument("argument is missing");
+
+      const auto rng = boost::make_iterator_range(fs::directory_iterator{input_path}, {});
+
+      using namespace boost::adaptors;
+
+      const auto is_png = [](auto&& e){ return boost::ends_with(e, ".png"); };
+      const auto is_gif = [](auto&& e){ return boost::ends_with(e, ".gif"); };
+      const auto is_jpg = [](auto&& e){ return boost::ends_with(e, ".jpg"); };
+      const auto is_jpeg = [](auto&& e){ return boost::ends_with(e, ".jpeg"); };
+
+      // clang-format off
+      std::vector<std::string> found_images;
+      boost::copy(rng 
+         | transformed([](auto&& e) { return e.path().u8string(); }) 
+         | filtered(any_of(is_png, is_gif, is_jpg, is_jpeg)),
+         std::back_inserter(found_images));
+      // clang-format on
+      
+      spdlog::info("{} images found in {}", std::size(found_images), input_path);
+
+      if (std::empty(found_images))
+         throw stop_application("no image found in " + input_path);
+
+      if (random_shuffle)
+      {
+         std::random_device rd;
+         std::mt19937 g(rd());
+         std::shuffle(std::begin(found_images), std::end(found_images), g);
+      }
+ 
+      QApplication app(argc, argv);
+      main_widget wnd{std::move(found_images)};
+      maximized ? wnd.showMaximized() : wnd.show();
+      exit_code = app.exec();
+   }
+   catch (stop_application const& e)
+   {
+      spdlog::info(e.what());
+   }
+   catch (std::exception const& e)
+   {
+      spdlog::error(e.what());
+      exit_code = -1;
+   }
+   return exit_code;
 }

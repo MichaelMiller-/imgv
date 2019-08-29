@@ -2,53 +2,60 @@
 
 #include <QMovie>
 #include <QLabel>
-#include <QFileInfo>
 #include <QVBoxLayout>
-#include <QStateMachine>
 #include <QAction>
-#include <QThread>
 #include <QSlider>
+#include <QStyle>
+#include <QApplication>
+#include <QScreen>
+#include <QScrollArea>
 
-#include <boost/range/iterator_range.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <spdlog/spdlog.h>
 
 #include <filesystem>
-#include <iostream>
+#include <algorithm>
 
-namespace fs = std::experimental::filesystem;
-
-main_widget::main_widget(QWidget *parent) 
-   : QWidget{parent} 
+main_widget::main_widget(container_t&& img_list)
+   : image_list{img_list}
 {
 //! \todo 2019-04-04 action: play/pause / state / space
-//! \todo 2019-04-04 action: left -> next left
-//! \todo 2019-04-04 action: right -> next right
-//! \todo 2019-04-04 load image and filelist in a second thread -> enable action if thread is done
+//! \todo 2019-08-29 reload image list in a second thread if key_o is pressed -> enable action if thread is done
 
    movie = new QMovie(this);
    movie->setCacheMode(QMovie::CacheAll);
 
-   canvas = new QLabel(tr("no picture loaded"), this);
+   canvas = new QLabel{ tr("no picture loaded"), this};
    canvas->setAlignment(Qt::AlignCenter);
+   canvas->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
    canvas->setBackgroundRole(QPalette::Dark);
    canvas->setAutoFillBackground(true);
 
-   frame_slider = new QSlider(Qt::Horizontal, this);
-   frame_slider->setVisible(false);
-   frame_slider->setTickPosition(QSlider::TicksBelow);
-   frame_slider->setTickInterval(10);
+   scroll_area = new QScrollArea{this};
+   scroll_area->setBackgroundRole(QPalette::Dark);
+   scroll_area->setWidget(canvas);
 
-   //! \todo 2019-04-04 unn�tig?
-   auto mainLayout = new QVBoxLayout;
-   mainLayout->addWidget(canvas);
-   mainLayout->addWidget(frame_slider);
-   setLayout(mainLayout);
+   // frame_slider = new QSlider(Qt::Horizontal, this);
+   // frame_slider->setVisible(false);
+   // frame_slider->setTickPosition(QSlider::TicksBelow);
+   // frame_slider->setTickInterval(10);
 
-   // clang-format off
+   auto layout = new QVBoxLayout;
+   layout->setContentsMargins(0,0,0,0);
+   layout->addWidget(scroll_area);
+   setLayout(layout);
 
    // actions
-   auto switch_image_size = new QAction{this};
-   switch_image_size->setShortcut(QKeySequence{Qt::Key::Key_R});
+   auto close = new QAction{this};
+   close->setShortcut(QKeySequence{Qt::Key::Key_Escape});
+
+   auto fit_to_window = new QAction{this};
+   fit_to_window->setObjectName("fit_to_window");
+   fit_to_window->setCheckable(true);
+   fit_to_window->setChecked(true);
+   fit_to_window->setShortcut(QKeySequence{Qt::Key::Key_R});
+
+   auto switch_fullscreen = new QAction{this};
+   switch_fullscreen->setShortcut(QKeySequence{Qt::Key::Key_F10});
 
    //auto switch_speed = new QAction{this};
    //switch_speed->setShortcuts({ QKeySequence{Qt::Key::Key_Minus}, QKeySequence{Qt::Key::Key_Plus} });
@@ -62,34 +69,15 @@ main_widget::main_widget(QWidget *parent)
    next_image = new QAction{this};
    next_image->setShortcut(QKeySequence{Qt::Key::Key_Right});
 
-   canvas->addAction(switch_image_size);
+   canvas->addAction(fit_to_window);
+   canvas->addAction(switch_fullscreen);
    canvas->addAction(play_pause);
    canvas->addAction(previous_image);
    canvas->addAction(next_image);
+   canvas->addAction(close);
 
-   // root state
-   auto state_main = new QState(QState::ParallelStates);
-   state_main->assignProperty(frame_slider, "visible", false);
-
-   // child states
-   auto state_image_size = new QState(state_main);
    //auto state_animation = new QState(state_main);
    //auto state_speed = new QState(state_main);
-
-   // state_image_size
-   {
-      auto state_image_fit_to_window = new QState(state_image_size);
-      //! \todo 2019-04-05 scroll if imagesize is greater than windowsize
-      state_image_fit_to_window->assignProperty(canvas, "scaledContents", true);
-
-      auto state_image_orginal_size = new QState(state_image_size);
-      state_image_orginal_size->assignProperty(canvas, "scaledContents", false);
-
-      state_image_size->setInitialState(state_image_fit_to_window);
-
-      state_image_fit_to_window->addTransition(switch_image_size, &QAction::triggered, state_image_orginal_size);
-      state_image_orginal_size->addTransition(switch_image_size, &QAction::triggered, state_image_fit_to_window);
-   }
 
    // state_animation
    //{
@@ -98,10 +86,9 @@ main_widget::main_widget(QWidget *parent)
    //   QObject::connect(state_animation_play, &QState::entered, [this] { 
    //      
    //            std::cout << "animation play" << std::endl;
-
    //      movie->setPaused(false); });
-
    //   auto state_animation_pause = new QState(state_animation);
+
    //   state_animation_pause->assignProperty(frame_slider, "visible", true);
    //   //! \todo 2019-04-05 show frameslider (overlay)
    //   QObject::connect(state_animation_play, &QState::entered, [this] { 
@@ -119,49 +106,49 @@ main_widget::main_widget(QWidget *parent)
 
    //QObject::connect(movie, &QMovie::frameChanged, this, &main_widget::update_frame_slider);
    //QObject::connect(frame_slider, &QSlider::valueChanged, [this](auto frame){ movie->jumpToFrame(frame); });
-   QObject::connect(previous_image, &QAction::triggered, [this]{ open_file(*std::prev(current_image)); });
-   QObject::connect(next_image, &QAction::triggered, [this]{ open_file(*std::next(current_image)); });
 
-   auto state_machine = new QStateMachine(this);
-   state_machine->addState(state_main);
-   state_machine->setInitialState(state_main);
-   state_machine->start();
+   QObject::connect(fit_to_window, &QAction::triggered, this, &main_widget::fit_image_to_widget);
+   QObject::connect(switch_fullscreen, &QAction::triggered, [this]{ 
+      spdlog::debug("switch fullscreen");
+      setWindowState(windowState() ^ Qt::WindowFullScreen);
+   });
+   QObject::connect(previous_image, &QAction::triggered, [this]{ 
+      std::rotate(std::begin(image_list), std::begin(image_list) + 1, std::end(image_list));
+      show_image(*std::begin(image_list)); 
+   });
+   QObject::connect(next_image, &QAction::triggered, [this]{ 
+      std::rotate(std::rbegin(image_list), std::rbegin(image_list) + 1, std::rend(image_list));
+      show_image(*std::begin(image_list)); 
+   });
+   QObject::connect(close, &QAction::triggered, this, &QWidget::close);
 
-   resize(400, 400);
+   setContentsMargins(0,0,0,0);
+   resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
 }
 
-void main_widget::open_file(std::string const& filename)
+void main_widget::fit_image_to_widget(bool value)
 {
-   //!\todo 2019-04-05 unneccessary casts
-   const auto current_directory = QFileInfo(QString::fromStdString(filename)).absolutePath().toStdString();
-   const auto purged_filename = QFileInfo(QString::fromStdString(filename)).fileName().toStdString();
-   //! \todo 2019-04-05 filter images from filelist
-   const auto rng = boost::make_iterator_range(fs::directory_iterator{current_directory}, {});
-
-   //! \todo 2019-04-05 only do stuff if it is neccessary -> always clear and reload make no sense
-   current_directory_image_list.clear();
-   std::transform(
-      std::begin(rng), 
-      std::end(rng), 
-      std::back_inserter(current_directory_image_list), 
-      [](auto && e){ return e.path().u8string(); });
-
-   const auto it = std::find_if(
-      std::begin(current_directory_image_list), 
-      std::end(current_directory_image_list),
-      [fn = purged_filename](auto && e){ return boost::ends_with(e, fn); });
-
-   current_image = it;
-
-   auto n = std::distance(std::begin(current_directory_image_list), it);
+   spdlog::debug("fit image to widget: {}", value);
+   scroll_area->setWidgetResizable(value);
    
-   // enable actions
-   play_pause->setEnabled(boost::ends_with(purged_filename, ".gif"));
-   previous_image->setEnabled(n > 0);
-   next_image->setEnabled(n + 1 < std::size(current_directory_image_list));
+   if (value == false)
+      canvas->adjustSize();
+}
 
+void main_widget::showEvent(QShowEvent *event)
+{
+   show_image(*std::begin(image_list)); 
+}
+
+void main_widget::show_image(value_t const& image_filename)
+{
    movie->stop();
    canvas->setMovie(movie);
-   movie->setFileName(QString::fromStdString(*it));
+   movie->setFileName(QString::fromStdString(image_filename));
    movie->start();
+
+   auto fit_to_window = findChild<QAction*>("fit_to_window");
+   emit fit_image_to_widget(fit_to_window->isChecked());
+
+   setWindowTitle(QString::fromStdString(image_filename));
 }
