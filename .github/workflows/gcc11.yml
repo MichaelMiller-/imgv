@@ -1,0 +1,59 @@
+name: GCC 11.0
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+
+jobs:
+  gcc-10:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        config: [Debug, Release]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Compiler
+      run: |
+        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        sudo apt install gcc-11
+        export CXX=g++-11.0
+        g++ --version
+
+    - name: Install Dependencies
+      shell: bash
+      working-directory: ${{runner.workspace}}
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git 
+        cd vcpkg
+        ./bootstrap-vcpkg.sh
+        ./vcpkg install spdlog
+        ./vcpkg install qt5
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{runner.workspace}}/build
+
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DENABLE_VIENNA_CL:BOOL=TRUE -DCMAKE_BUILD_TYPE=${{matrix.config}} -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: cmake --build . --config ${{matrix.config}}
+
+    - name: Test
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: ctest --build-config ${{matrix.config}} --rerun-failed --output-on-failure
+
