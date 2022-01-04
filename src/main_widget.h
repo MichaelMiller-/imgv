@@ -42,4 +42,5 @@ public:
 
 protected:
    virtual void showEvent(QShowEvent *event) override;
+   virtual void wheelEvent(QWheelEvent *event) override;
 };

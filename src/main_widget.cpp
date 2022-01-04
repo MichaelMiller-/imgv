@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QScreen>
 #include <QScrollArea>
+#include <QWheelEvent>
 
 #include <spdlog/spdlog.h>
 
@@ -26,9 +27,10 @@ main_widget::main_widget(container_t&& img_list)
 
    canvas = new QLabel{ tr("no picture loaded"), this};
    canvas->setAlignment(Qt::AlignCenter);
-   canvas->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+   // canvas->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
    canvas->setBackgroundRole(QPalette::Dark);
    canvas->setAutoFillBackground(true);
+   canvas->setScaledContents(true);
 
    scroll_area = new QScrollArea{this};
    scroll_area->setBackgroundRole(QPalette::Dark);
@@ -43,7 +45,7 @@ main_widget::main_widget(container_t&& img_list)
    layout->setContentsMargins(0,0,0,0);
    layout->addWidget(scroll_area);
    setLayout(layout);
-
+   
    // actions
    auto close = new QAction{this};
    close->setShortcut(QKeySequence{Qt::Key::Key_Escape});
@@ -140,6 +142,22 @@ void main_widget::showEvent(QShowEvent *event)
    show_image(*std::begin(image_list)); 
 }
 
+void main_widget::wheelEvent(QWheelEvent* event)
+{
+   const auto delta = event->angleDelta();
+
+   if (std::min(delta.y(), 0))
+   {
+      std::rotate(std::begin(image_list), std::begin(image_list) + 1, std::end(image_list));
+      show_image(*std::begin(image_list)); 
+   }
+   else if (std::max(delta.y(), 0))
+   {
+      std::rotate(std::rbegin(image_list), std::rbegin(image_list) + 1, std::rend(image_list));
+      show_image(*std::begin(image_list)); 
+   }
+}
+
 void main_widget::show_image(value_t const& image_filename)
 {
    movie->stop();
@@ -148,7 +166,7 @@ void main_widget::show_image(value_t const& image_filename)
    movie->start();
 
    auto fit_to_window = findChild<QAction*>("fit_to_window");
-   emit fit_image_to_widget(fit_to_window->isChecked());
+   fit_image_to_widget(fit_to_window->isChecked());
 
    setWindowTitle(QString::fromStdString(image_filename));
 }
