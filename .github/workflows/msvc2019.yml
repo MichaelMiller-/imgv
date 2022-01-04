@@ -29,6 +29,7 @@ jobs:
         git clone https://github.com/Microsoft/vcpkg.git 
         cd vcpkg
         bootstrap-vcpkg.bat
+        vcpkg install boost-program-options
         vcpkg install spdlog
         vcpkg install qt5
 
