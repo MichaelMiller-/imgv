@@ -19,6 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Prepare system
+        uses: ./.github/actions/prepare-system
+
       - name: Install compiler
         run: |
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test

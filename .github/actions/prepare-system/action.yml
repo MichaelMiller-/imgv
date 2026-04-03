@@ -1,0 +1,12 @@
+name: prepare-system
+description: Install system packages
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install packages
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install -y autoconf autoconf-archive automake libtool

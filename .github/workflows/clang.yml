@@ -19,6 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Prepare system
+        uses: ./.github/actions/prepare-system
+
       - name: Install Compiler
         run: |
           sudo apt-get update 
