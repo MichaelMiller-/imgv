@@ -171,7 +171,7 @@ namespace imgv
       // fit_image_to_widget(fit_to_window->isChecked());
       fit_image_to_widget(true);
 
-      setWindowTitle(QString::fromStdString(image_filename));
+      setWindowTitle(QString::fromStdString(image_filename.string()));
    }
 
    void main_widget::next_image()
