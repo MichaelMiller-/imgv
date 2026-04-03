@@ -224,10 +224,11 @@ namespace imgv
       SDL_RenderPresent(m_renderer);
    }
 
+   //! \todo simplify and split function
    auto application::load_image(std::filesystem::path const& filename) -> bool
    {
       if (filename.extension() == ".gif") {
-         auto anim = IMG_LoadAnimation(filename.c_str());
+         auto anim = IMG_LoadAnimation(filename.string().c_str());
          if (not anim) {
             std::cerr << "IMG_LoadAnimation failed: " << SDL_GetError() << '\n';
             return false;
@@ -247,10 +248,10 @@ namespace imgv
                return false;
             }
 
-            animation step;
-            step.frame = tex;
-            step.delay_ms = std::max(anim->delays[i], 10); // avoid zero / too-fast frames
-
+            animation step{
+               .frame = tex,
+               .delay_ms = std::max(anim->delays[i], 10), // avoid zero / too-fast frames
+            };
             m_frames.push_back(step);
          }
 
