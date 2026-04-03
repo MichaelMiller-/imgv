@@ -1,3 +1,6 @@
+#pragma once
 
-#define VERSION_MAJOR @imgv_VERSION_MAJOR@
-#define VERSION_MINOR @imgv_VERSION_MINOR@
+#define IMGV_VERSION_MAJOR @imgv_VERSION_MAJOR@
+#define IMGV_VERSION_MINOR @imgv_VERSION_MINOR@
+
+inline constexpr char IMGV_BINARY_NAME[] = "@BINARY_NAME@";

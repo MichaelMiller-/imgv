@@ -7,40 +7,41 @@ class QScrollArea;
 
 #include <QWidget>
 
-#include <vector>
-#include <string>
 #include <filesystem>
+#include <string>
+#include <vector>
 
-class main_widget final : public QWidget
+namespace imgv
 {
-   Q_OBJECT
+   class main_widget final : public QWidget
+   {
+      Q_OBJECT
 
-private:
-   QLabel *canvas{nullptr};
-   QMovie *movie{nullptr};
-   QScrollArea* scroll_area{nullptr};
-   // QSlider* frame_slider{nullptr};
+   private:
+      QLabel* m_canvas{nullptr};
+      QMovie* m_movie{nullptr};
+      QScrollArea* m_scroll_area{nullptr};
+      // QSlider* frame_slider{nullptr};
 
-   QAction* play_pause{nullptr};
-   QAction* fit_to_window{nullptr};
-   QAction* previous_image{nullptr};
-   QAction* next_image{nullptr};
+      using container_t = std::vector<std::filesystem::path>;
+      using value_t = container_t::value_type;
 
-   using container_t = std::vector<std::string>;
-   using value_t = container_t::value_type;
+      container_t m_image_list;
 
-   container_t image_list;
+   private slots:
+      void fit_image_to_widget(bool value);
 
-private slots:
-   void fit_image_to_widget(bool value);
+   private:
+      void show_image(value_t const& image_filename);
+      void next_image();
+      void previous_image();
 
-private:
-   void show_image(value_t const& image_filename);
+   public:
+      explicit main_widget(container_t img_list);
 
-public:
-   explicit main_widget(container_t&& img_list);
-
-protected:
-   virtual void showEvent(QShowEvent *event) override;
-   virtual void wheelEvent(QWheelEvent *event) override;
-};
+   protected:
+      void showEvent(QShowEvent* event) override;
+      void wheelEvent(QWheelEvent* event) override;
+      void mousePressEvent(QMouseEvent* event) override;
+   };
+} // namespace imgv

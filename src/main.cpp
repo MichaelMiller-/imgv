@@ -1,141 +1,77 @@
 #include <QApplication>
 
+#include "any_of.h"
 #include "config.h"
 #include "main_widget.h"
 
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/parsers.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/range/adaptors.hpp>
-#include <boost/range/algorithm.hpp>
-#include <boost/range/iterator_range.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <docopt.h>
 
 #include <spdlog/spdlog.h>
 
-#include <string>
+#include <algorithm>
 #include <filesystem>
-#include <sstream>
+#include <format>
+#include <random>
+#include <string>
 #include <tuple>
 #include <utility>
-#include <algorithm>
-#include <random>
 
-namespace po = boost::program_options;
-namespace fs = std::filesystem;
+inline constexpr auto USAGE =
+   R"(imgv
 
-template <typename... Fs>
-class any_of
+    Usage:
+      imgv --path <path> [ --shuffle ] [ --maximized ]
+      imgv (-h | --help)
+      imgv --version
+
+    Options:
+      --path <path>   Images in the given directory will be shown
+      --shuffle       Shows a random image in the filelist
+      --maximized     Shows the window maximized
+      -h --help       Show this screen.
+      --version       Show version.
+)";
+
+int main(int argc, char** argv)
 {
-   std::tuple<Fs...> fs;
-
-   template <std::size_t ...Is, typename... Args>
-   constexpr bool invoke(std::index_sequence<Is...>, Args &&... args) const
-   {
-      return (... || std::get<Is>(fs)(args...));
-   }
-   
-public:
-   explicit any_of(Fs... fs) : fs{ fs... } {};
-
-   template <typename... Args>
-   constexpr bool operator()(Args &&... args) const
-   {
-      return invoke(std::index_sequence_for<Fs...>(), std::forward<Args>(args)...);
-   }
-};
-
-class stop_application
-{
-   const std::string message;
-public:
-   template <typename... Args>
-   stop_application(Args &&... args) : message{ std::forward<Args>(args)... }
-   {}
-
-   [[nodiscard]] auto what() const noexcept { return message; }
-};
-
-int main(int argc, char **argv)
-{
-   int exit_code{0};
-   try
-   {
+   try {
       spdlog::set_level(spdlog::level::debug);
       spdlog::info("imgv started ...");
 
-      bool maximized{false};
-      bool random_shuffle{true};
-      std::string input_path{};
+      auto const args =
+         docopt::docopt(USAGE, {argv + 1, argv + argc}, true,
+                        std::format("{} {}.{}", IMGV_BINARY_NAME, IMGV_VERSION_MAJOR, IMGV_VERSION_MINOR));
 
-      po::options_description desc("Allowed options");
-      // clang-format off
-      desc.add_options()
-         ("help", "produce help message (this page)")
-         ("version,V", "print version string")
-         ("maximized", po::bool_switch(&maximized)->default_value(maximized), "Shows the window maximized")
-         ("shuffle", po::bool_switch(&random_shuffle)->default_value(random_shuffle), "show a random image")
-         ("path,P", po::value<decltype(input_path)>(&input_path), "images in path will be shown")
-         ;
-      // clang-format on
-      po::variables_map vm;
-      po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-      po::notify(vm);
+      const auto is_png = [](auto const& e) { return e.path().extension() == ".png"; };
+      const auto is_gif = [](auto const& e) { return e.path().extension() == ".gif"; };
+      const auto is_jpg = [](auto const& e) { return e.path().extension() == ".jpg"; };
+      const auto is_jpeg = [](auto const& e) { return e.path().extension() == ".jpeg"; };
 
-      if (vm.count("help"))
-      {
-         std::stringstream ss;
-         ss << desc;
-         throw stop_application(ss.str());
-      }
-      if (vm.count("version"))
-         throw stop_application("imgv version: " + std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR));
+      auto input_path = args.at("--path").asString();
 
-      if (std::empty(input_path))
-         throw std::invalid_argument("argument is missing");
+      std::vector<std::filesystem::path> found_images{};
+      std::copy_if(std::filesystem::directory_iterator{input_path}, {}, std::back_inserter(found_images),
+                   imgv::any_of(is_png, is_gif, is_jpg, is_jpeg));
 
-      const auto rng = boost::make_iterator_range(fs::directory_iterator{input_path}, {});
-
-      using namespace boost::adaptors;
-
-      const auto is_png = [](auto&& e){ return boost::ends_with(e, ".png"); };
-      const auto is_gif = [](auto&& e){ return boost::ends_with(e, ".gif"); };
-      const auto is_jpg = [](auto&& e){ return boost::ends_with(e, ".jpg"); };
-      const auto is_jpeg = [](auto&& e){ return boost::ends_with(e, ".jpeg"); };
-
-      // clang-format off
-      std::vector<std::string> found_images;
-      boost::copy(rng 
-         | transformed([](auto&& e) { return e.path().u8string(); }) 
-         | filtered(any_of(is_png, is_gif, is_jpg, is_jpeg)),
-         std::back_inserter(found_images));
-      // clang-format on
-      
       spdlog::info("{} images found in {}", std::size(found_images), input_path);
 
-      if (std::empty(found_images))
-         throw stop_application("no image found in " + input_path);
+      if (std::empty(found_images)) {
+         std::runtime_error{"No images found"};
+      }
 
-      if (random_shuffle)
-      {
+      if (args.at("--shuffle").asBool()) {
          std::random_device rd;
          std::mt19937 g(rd());
          std::shuffle(std::begin(found_images), std::end(found_images), g);
       }
- 
+
       QApplication app(argc, argv);
-      main_widget wnd{std::move(found_images)};
-      maximized ? wnd.showMaximized() : wnd.show();
-      exit_code = app.exec();
-   }
-   catch (stop_application const& e)
-   {
-      spdlog::info(e.what());
-   }
-   catch (std::exception const& e)
-   {
+      imgv::main_widget wnd{std::move(found_images)};
+      args.at("--maximized").asBool() ? wnd.showMaximized() : wnd.show();
+      return app.exec();
+   } catch (std::exception const& e) {
       spdlog::error(e.what());
-      exit_code = -1;
+      return 1;
    }
-   return exit_code;
+   return 0;
 }
