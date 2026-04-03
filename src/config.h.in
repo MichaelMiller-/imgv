@@ -4,3 +4,5 @@
 #define IMGV_VERSION_MINOR @imgv_VERSION_MINOR@
 
 inline constexpr char IMGV_BINARY_NAME[] = "@BINARY_NAME@";
+
+inline constexpr std::string_view IMGV_BINARY_DIRECTORY = "@CMAKE_CURRENT_BINARY_DIR@";
