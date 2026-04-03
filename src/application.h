@@ -51,5 +51,7 @@ namespace imgv
 
       void next_image();
       void previous_image();
+
+      auto toggle_fullscreen() -> bool;
    };
 }

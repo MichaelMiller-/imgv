@@ -98,6 +98,9 @@ namespace imgv
                if (event.key.key == SDLK_RIGHT) {
                   next_image();
                }
+               if (event.key.key == SDLK_F11) {
+                  toggle_fullscreen();
+               }
                break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                if (event.button.button == SDL_BUTTON_LEFT) {
@@ -292,5 +295,17 @@ namespace imgv
    {
       std::rotate(std::begin(m_image_list), std::begin(m_image_list) + 1, std::end(m_image_list));
       load_image(*std::begin(m_image_list));
+   }
+
+   bool application::toggle_fullscreen()
+   {
+      auto const flags = SDL_GetWindowFlags(m_window);
+      auto const is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+
+      if (!SDL_SetWindowFullscreen(m_window, not is_fullscreen)) {
+         SDL_Log("SDL_SetWindowFullscreen failed: %s", SDL_GetError());
+         return false;
+      }
+      return true;
    }
 } // namespace imgv
