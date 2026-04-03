@@ -39,13 +39,13 @@ int main(int argc, char** argv)
       auto is_gif = [](auto const& e) { return e.path().extension() == ".gif"; };
       auto is_jpg = [](auto const& e) { return e.path().extension() == ".jpg"; };
       auto is_jpeg = [](auto const& e) { return e.path().extension() == ".jpeg"; };
+      auto is_webp = [](auto const& e) { return e.path().extension() == ".webp"; };
 
       auto input_path = args.at("--path").asString();
 
       std::vector<std::filesystem::path> found_images{};
       std::copy_if(std::filesystem::directory_iterator{input_path}, {}, std::back_inserter(found_images),
-                   //! \todo webp
-                   imgv::any_of(is_png, is_gif, is_jpg, is_jpeg));
+                   imgv::any_of(is_png, is_gif, is_jpg, is_jpeg, is_webp));
 
       spdlog::info("{} images found in {}", std::size(found_images), input_path);
 
