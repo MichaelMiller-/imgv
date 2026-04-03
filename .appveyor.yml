@@ -9,17 +9,11 @@ install:
   - cd c:\tools\vcpkg
   - git pull
   - .\bootstrap-vcpkg.bat
-  - cd %APPVEYOR_BUILD_FOLDER%
-  - vcpkg install boost-program-options:x64-windows
-  - vcpkg install spdlog:x64-windows
-  - vcpkg install qt5:x64-windows
-  - cd c:\tools\vcpkg
-  - vcpkg integrate install
 
 build_script:
   - mkdir c:\projects\source\_build
   - cd c:\projects\source\_build
-  - cmake -G "Visual Studio 16" -A x64 -DENABLE_VIEWER:BOOL=FALSE -DCMAKE_TOOLCHAIN_FILE=c:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+  - cmake -G "Visual Studio 17" -DCMAKE_TOOLCHAIN_FILE=c:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake ..
   - cmake --build . 
 
 test_script:
