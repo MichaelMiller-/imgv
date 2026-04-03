@@ -1,7 +1,6 @@
 {
   "dependencies": [
     "docopt",
-    "spdlog",
-    "qtbase"
+    "spdlog"
   ]
 }
