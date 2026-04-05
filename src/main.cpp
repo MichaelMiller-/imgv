@@ -13,16 +13,17 @@ inline constexpr auto USAGE =
    R"(imgv
 
     Usage:
-      imgv --path <path> [ --shuffle ] [ --maximized ]
+      imgv --path <path> [ --shuffle ] [ --maximized ] [ --filter <type> ]
       imgv (-h | --help)
       imgv --version
 
     Options:
-      --path <path>   Images in the given directory will be shown
-      --shuffle       Shows a random image in the filelist
-      --maximized     Shows the window maximized
-      -h --help       Show this screen.
-      --version       Show version.
+      --path <path>     Images in the given directory will be shown
+      --shuffle         Shows a random image in the filelist
+      --maximized       Shows the window maximized
+      --filter <type>   Filter file-list with the given type
+      -h --help         Show this screen.
+      --version         Show version.
 )";
 
 int main(int argc, char** argv)
@@ -44,8 +45,15 @@ int main(int argc, char** argv)
       auto input_path = args.at("--path").asString();
 
       std::vector<std::filesystem::path> found_images{};
-      std::copy_if(std::filesystem::directory_iterator{input_path}, {}, std::back_inserter(found_images),
-                   imgv::any_of(is_png, is_gif, is_jpg, is_jpeg, is_webp));
+
+      if (args.at("--filter")) {
+         std::copy_if(std::filesystem::directory_iterator{input_path}, {}, std::back_inserter(found_images),
+                      [type = args.at("--filter").asString()](auto const& e) { return e.path().extension() == type; });
+
+      } else {
+         std::copy_if(std::filesystem::directory_iterator{input_path}, {}, std::back_inserter(found_images),
+                      imgv::any_of(is_png, is_gif, is_jpg, is_jpeg, is_webp));
+      }
 
       spdlog::info("{} images found in {}", std::size(found_images), input_path);
 

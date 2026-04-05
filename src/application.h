@@ -41,7 +41,7 @@ namespace imgv
       void run();
 
    private:
-      constexpr auto next(DisplayMode current) -> DisplayMode;
+      static constexpr auto next(DisplayMode current) -> DisplayMode;
 
       void update();
 

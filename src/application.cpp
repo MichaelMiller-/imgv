@@ -232,10 +232,11 @@ namespace imgv
       if (filename.extension() == ".gif") {
          auto anim = IMG_LoadAnimation(filename.string().c_str());
          if (not anim) {
-            std::cerr << "IMG_LoadAnimation failed: " << SDL_GetError() << '\n';
+            std::cout << "IMG_LoadAnimation failed: " << SDL_GetError() << '\n';
             return false;
          }
 
+         m_frames.clear();
          m_frames.reserve(anim->count);
          for (decltype(anim->count) i = 0; i < anim->count; ++i) {
             auto surface = anim->frames[i];
@@ -245,7 +246,7 @@ namespace imgv
 
             auto tex = SDL_CreateTextureFromSurface(m_renderer, surface);
             if (not tex) {
-               std::cerr << "SDL_CreateTextureFromSurface failed: " << SDL_GetError() << '\n';
+               std::cout << "SDL_CreateTextureFromSurface failed: " << SDL_GetError() << '\n';
                IMG_FreeAnimation(anim);
                return false;
             }
@@ -260,18 +261,17 @@ namespace imgv
          IMG_FreeAnimation(anim);
 
          if (m_frames.empty()) {
-            std::cerr << "No GIF frames were loaded.\n";
+            std::cout << "No GIF frames were loaded.\n";
             return false;
          }
 
          m_animate = true;
          m_current_frame = 0;
          m_next_frame_tick = SDL_GetTicks() + m_frames[0].delay_ms;
-         return true;
       } else {
          auto next_image = IMG_LoadTexture(m_renderer, filename.string().c_str());
          if (not next_image) {
-            std::cerr << "IMG_LoadTexture failed for '" << filename << "': " << SDL_GetError() << '\n';
+            std::cout << "IMG_LoadTexture failed for '" << filename << "': " << SDL_GetError() << '\n';
             return false;
          }
 
